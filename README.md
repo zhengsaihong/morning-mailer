@@ -6,6 +6,10 @@
 
 它跑在 GitHub Actions 上，所以你的电脑可以安心睡觉；唯一需要保持清醒的是 GitHub。
 
+## 它长什么样
+
+[打开示例邮件](https://zhengsaihong.github.io/morning-mailer/) 看看收件箱里会出现的 HTML 邮件。示例使用固定的演示天气，不会访问 API，也没有任何人的密钥。
+
 ## 它会做什么
 
 - 每天中国时间 `07:30` 发一封早安邮件
