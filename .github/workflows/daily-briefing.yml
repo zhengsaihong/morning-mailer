@@ -18,8 +18,7 @@ jobs:
       - name: Send morning email
         env:
           BAIDU_MAP_AK: ${{ secrets.BAIDU_MAP_AK }}
-          BAIDU_DISTRICT_ID: ${{ secrets.BAIDU_DISTRICT_ID }}
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+          RECIPIENTS: ${{ secrets.RECIPIENTS }}
         run: python briefing.py

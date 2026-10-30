@@ -17,6 +17,14 @@ WEATHER = {
 
 
 class BriefingRenderTests(unittest.TestCase):
+    def test_parse_recipients_accepts_multiple_regions(self):
+        recipients = briefing.parse_recipients("福建莆田,a@qq.com\n福建省福州市，b@qq.com")
+        self.assertEqual(recipients, [("福建莆田", "a@qq.com"), ("福建省福州市", "b@qq.com")])
+
+    def test_parse_recipients_rejects_invalid_lines(self):
+        with self.assertRaises(ValueError):
+            briefing.parse_recipients("福建莆田")
+
     def test_plain_text_contains_weather_and_greeting(self):
         now = dt.datetime(2026, 10, 30, 7, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
         body = briefing.render_plain_text(now, WEATHER)

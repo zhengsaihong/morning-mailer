@@ -6,6 +6,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import os
+import re
 import smtplib
 import sys
 from email.mime.multipart import MIMEMultipart
@@ -17,6 +18,8 @@ import requests
 
 TIMEZONE = ZoneInfo("Asia/Shanghai")
 BAIDU_WEATHER_URL = "https://api.map.baidu.com/weather/v1/"
+BAIDU_GEOCODING_URL = "https://api.map.baidu.com/geocoding/v3/"
+BAIDU_REVERSE_GEOCODING_URL = "https://api.map.baidu.com/reverse_geocoding/v3/"
 MORNING_IMAGE_URL = "https://zhengsaihong.github.io/morning-mailer/assets/morning-sunrise.jpg"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -24,12 +27,59 @@ log = logging.getLogger("morning_mailer")
 
 
 def load_config() -> dict[str, str]:
-    required = ["BAIDU_MAP_AK", "BAIDU_DISTRICT_ID", "GMAIL_ADDRESS", "GMAIL_APP_PASSWORD", "RECIPIENT_EMAIL"]
+    required = ["BAIDU_MAP_AK", "GMAIL_ADDRESS", "GMAIL_APP_PASSWORD", "RECIPIENTS"]
     config = {name: os.getenv(name, "").strip() for name in required}
     missing = [name for name, value in config.items() if not value]
     if missing:
         raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
     return config
+
+
+def parse_recipients(value: str) -> list[tuple[str, str]]:
+    recipients = []
+    for line_number, raw_line in enumerate(value.splitlines(), start=1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        if "," not in line and "，" in line:
+            line = line.replace("，", ",", 1)
+        if line.count(",") != 1:
+            raise ValueError(f"RECIPIENTS line {line_number} must be: 地区,邮箱")
+        place, email = (part.strip() for part in line.split(","))
+        if not place or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            raise ValueError(f"RECIPIENTS line {line_number} has an invalid region or email address")
+        recipients.append((place, email))
+    if not recipients:
+        raise ValueError("RECIPIENTS must contain at least one 地区,邮箱 entry")
+    return recipients
+
+
+def resolve_district_id(ak: str, place: str) -> str:
+    geocoding = requests.get(
+        BAIDU_GEOCODING_URL,
+        params={"address": place, "output": "json", "ak": ak},
+        timeout=15,
+    )
+    geocoding.raise_for_status()
+    geocoding_payload = geocoding.json()
+    if geocoding_payload.get("status") != 0:
+        raise RuntimeError(f"Could not find region '{place}': {geocoding_payload.get('message', 'Baidu geocoding failed')}")
+
+    location = geocoding_payload["result"]["location"]
+    reverse_geocoding = requests.get(
+        BAIDU_REVERSE_GEOCODING_URL,
+        params={"location": f"{location['lat']},{location['lng']}", "output": "json", "ak": ak},
+        timeout=15,
+    )
+    reverse_geocoding.raise_for_status()
+    reverse_payload = reverse_geocoding.json()
+    if reverse_payload.get("status") != 0:
+        raise RuntimeError(f"Could not identify region '{place}': {reverse_payload.get('message', 'Baidu reverse geocoding failed')}")
+
+    district_id = reverse_payload["result"]["addressComponent"].get("adcode")
+    if not district_id:
+        raise RuntimeError(f"Baidu did not return an administrative code for '{place}'")
+    return str(district_id)
 
 
 def fetch_weather(ak: str, district_id: str) -> dict[str, object]:
@@ -142,10 +192,10 @@ def render_html(now: dt.datetime, weather: dict[str, object]) -> str:
 </body></html>"""
 
 
-def send_email(config: dict[str, str], subject: str, plain: str, html: str) -> None:
+def send_email(config: dict[str, str], recipient: str, subject: str, plain: str, html: str) -> None:
     message = MIMEMultipart("alternative")
     message["From"] = config["GMAIL_ADDRESS"]
-    message["To"] = config["RECIPIENT_EMAIL"]
+    message["To"] = recipient
     message["Subject"] = subject
     message.attach(MIMEText(plain, "plain", "utf-8"))
     message.attach(MIMEText(html, "html", "utf-8"))
@@ -158,12 +208,17 @@ def main() -> None:
     try:
         config = load_config()
         now = dt.datetime.now(TIMEZONE)
-        weather = fetch_weather(config["BAIDU_MAP_AK"], config["BAIDU_DISTRICT_ID"])
-        plain = render_plain_text(now, weather)
-        html = render_html(now, weather)
-        send_email(config, f"早安，{weather['location']}｜{now:%Y-%m-%d}", plain, html)
-        log.info("Email sent to %s", config["RECIPIENT_EMAIL"])
-    except (ValueError, requests.RequestException, RuntimeError, KeyError) as error:
+        weather_by_place: dict[str, dict[str, object]] = {}
+        for place, recipient in parse_recipients(config["RECIPIENTS"]):
+            if place not in weather_by_place:
+                district_id = resolve_district_id(config["BAIDU_MAP_AK"], place)
+                weather_by_place[place] = fetch_weather(config["BAIDU_MAP_AK"], district_id)
+            weather = weather_by_place[place]
+            plain = render_plain_text(now, weather)
+            html = render_html(now, weather)
+            send_email(config, recipient, f"早安，{weather['location']}｜{now:%Y-%m-%d}", plain, html)
+            log.info("Email sent for %s", weather["location"])
+    except (ValueError, requests.RequestException, RuntimeError, KeyError, smtplib.SMTPException) as error:
         log.error("Morning email was not sent: %s", error)
         sys.exit(1)
 
