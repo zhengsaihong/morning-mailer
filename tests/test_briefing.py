@@ -29,6 +29,11 @@ class BriefingRenderTests(unittest.TestCase):
         self.assertIn("晴&lt;script&gt;", body)
         self.assertNotIn("晴<script>", body)
 
+    def test_rainy_weather_gets_an_umbrella_reminder(self):
+        title, advice = briefing.weather_advice({**WEATHER, "condition": "小雨"})
+        self.assertEqual(title, "出门提醒")
+        self.assertIn("雨伞", advice)
+
 
 if __name__ == "__main__":
     unittest.main()

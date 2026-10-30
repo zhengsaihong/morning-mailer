@@ -17,6 +17,7 @@ import requests
 
 TIMEZONE = ZoneInfo("Asia/Shanghai")
 BAIDU_WEATHER_URL = "https://api.map.baidu.com/weather/v1/"
+MORNING_IMAGE_URL = "https://images.unsplash.com/photo-1771405554137-410a7f0af2cc?auto=format&fit=crop&fm=jpg&q=82&w=1200"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("morning_mailer")
@@ -70,21 +71,34 @@ def weather_icon(condition: str) -> str:
 
 def greeting_for(day: dt.date) -> str:
     greetings = (
-        "新的一天，认真生活，也别忘了照顾自己。",
-        "愿你今天步履从容，所遇皆是好事。",
-        "把注意力放在眼前的一件事上，慢慢做好它。",
-        "清晨有光，今天也值得期待。",
-        "愿你今天心有方向，行有所获。",
+        "把今天最不想做的一件事先做掉，后面就都是赚的。",
+        "慢一点没关系，先把早餐和自己照顾好。",
+        "今天不用拯救世界，先把眼前的一件小事做好。",
+        "不必全速奔跑，稳定前进也算很厉害。",
+        "愿你今天有好消息，也有好胃口。",
     )
     return greetings[day.toordinal() % len(greetings)]
 
 
+def weather_advice(weather: dict[str, object]) -> tuple[str, str]:
+    condition = str(weather["condition"])
+    if "雨" in condition or "雪" in condition:
+        return "出门提醒", "雨伞请带上。湿鞋不会让人显得深情，只会让袜子很有意见。"
+    if int(weather["high"]) >= 30:
+        return "防晒提醒", "阳光今天工作态度很积极，防晒也请同样认真。"
+    if int(weather["low"]) <= 10:
+        return "保暖提醒", "今天的风会认真参与对话，外套别留在椅背上。"
+    return "今日节奏", "天气很配合。先出门走两步，再决定要不要跟世界讲道理。"
+
+
 def render_plain_text(now: dt.datetime, weather: dict[str, object]) -> str:
+    advice_title, advice_text = weather_advice(weather)
     return "\n".join(
         [
             f"早安，今天是 {now:%Y年%m月%d日}。",
             f"{weather['location']}天气：{weather['condition']}，{weather['temperature']}°C，体感 {weather['feels_like']}°C。",
             f"最高 {weather['high']}°C，最低 {weather['low']}°C，{weather['wind']}。",
+            f"{advice_title}：{advice_text}",
             greeting_for(now.date()),
         ]
     )
@@ -96,37 +110,33 @@ def render_html(now: dt.datetime, weather: dict[str, object]) -> str:
     location = escape(str(weather["location"]))
     condition = escape(str(weather["condition"]))
     greeting = escape(greeting_for(now.date()))
+    advice_title, advice_text = weather_advice(weather)
     return f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>早安，{location}</title></head>
-<body style="margin:0;background:#edf2f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#18333b;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#edf2f4;padding:32px 12px;"><tr><td align="center">
+<body style="margin:0;background:#f4f7f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#21363d;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7f8;padding:28px 12px;"><tr><td align="center">
     <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;">
-      <tr><td style="height:6px;background:#ee795d;font-size:0;line-height:0;">&nbsp;</td></tr>
-      <tr><td style="background:#173f4a;padding:34px 34px 30px;color:#ffffff;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#a9d8db;">MORNING WEATHER NOTE</div>
-        <div style="font-size:30px;font-weight:700;line-height:1.25;margin-top:12px;">早安，{location}</div>
-        <div style="font-size:14px;line-height:1.5;color:#c4d8db;margin-top:7px;">{date_text} · 星期{weekday}</div>
+      <tr><td><img src="{MORNING_IMAGE_URL}" width="600" alt="晨光中的群山" style="display:block;width:100%;height:190px;object-fit:cover;border:0;"></td></tr>
+      <tr><td style="padding:28px 34px 12px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.2px;color:#c95f4a;">MORNING NOTE · 07:30</div>
+        <div style="font-size:30px;font-weight:700;line-height:1.3;color:#21363d;margin-top:8px;">早安，{location}</div>
+        <div style="font-size:14px;color:#71858b;margin-top:5px;">{date_text} · 星期{weekday}</div>
       </td></tr>
-      <tr><td style="padding:30px 34px 12px;">
-        <div style="border-left:3px solid #ee795d;padding-left:13px;font-size:16px;line-height:1.7;color:#35535b;">{greeting}</div>
-      </td></tr>
-      <tr><td style="padding:20px 34px 28px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d9e5e7;border-radius:8px;overflow:hidden;">
-          <tr><td style="padding:24px 22px 20px;">
+      <tr><td style="padding:14px 34px 28px;"><div style="font-size:17px;line-height:1.7;color:#425960;">{greeting}</div></td></tr>
+      <tr><td style="padding:0 34px 28px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #dce6e8;border-bottom:1px solid #dce6e8;">
+          <tr><td style="padding:20px 0 18px;">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
-              <td style="vertical-align:top;"><div style="font-size:13px;font-weight:700;letter-spacing:.5px;color:#52737b;">今日天气</div><div style="font-size:18px;font-weight:700;color:#173f4a;margin-top:8px;">{weather_icon(condition)}&nbsp;{condition}</div></td>
-              <td align="right" style="vertical-align:top;"><span style="font-size:48px;font-weight:700;line-height:1;color:#173f4a;">{weather['temperature']}</span><span style="font-size:18px;font-weight:700;color:#173f4a;">°C</span><div style="font-size:12px;color:#6b858b;margin-top:6px;">体感 {weather['feels_like']}°C</div></td>
-            </tr></table>
-          </td></tr>
-          <tr><td style="background:#f4f8f8;padding:15px 22px;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
-              <td width="50%" style="font-size:13px;color:#52737b;border-right:1px solid #d9e5e7;"><span style="display:block;font-size:11px;color:#82999e;margin-bottom:4px;">温度范围</span><strong style="font-size:15px;color:#173f4a;">{weather['low']}°C — {weather['high']}°C</strong></td>
-              <td style="padding-left:20px;font-size:13px;color:#52737b;"><span style="display:block;font-size:11px;color:#82999e;margin-bottom:4px;">风况</span><strong style="font-size:15px;color:#173f4a;">{escape(str(weather['wind']))}</strong></td>
+              <td width="58%" style="vertical-align:top;"><div style="font-size:12px;font-weight:700;letter-spacing:1px;color:#71858b;">现在的天气</div><div style="font-size:22px;font-weight:700;color:#21363d;margin-top:9px;">{weather_icon(condition)}&nbsp;{condition}</div><div style="font-size:13px;color:#71858b;margin-top:8px;">{escape(str(weather['wind']))} · 体感 {weather['feels_like']}°C</div></td>
+              <td align="right" style="vertical-align:top;"><span style="font-size:58px;font-weight:700;line-height:.9;color:#e16b52;">{weather['temperature']}</span><span style="font-size:20px;font-weight:700;color:#e16b52;">°C</span><div style="font-size:12px;color:#71858b;margin-top:10px;">{weather['low']}°C / {weather['high']}°C</div></td>
             </tr></table>
           </td></tr>
         </table>
       </td></tr>
-      <tr><td style="padding:0 34px 28px;text-align:center;font-size:12px;line-height:1.5;color:#82999e;">每天 07:30，由 GitHub Actions 自动送达</td></tr>
+      <tr><td style="padding:0 34px 26px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff1eb;border-left:4px solid #e16b52;"><tr><td style="padding:16px 18px;"><div style="font-size:12px;font-weight:700;letter-spacing:.7px;color:#b44a39;">{escape(advice_title)}</div><div style="font-size:15px;line-height:1.65;color:#60443d;margin-top:5px;">{escape(advice_text)}</div></td></tr></table>
+      </td></tr>
+      <tr><td style="padding:0 34px 30px;text-align:center;font-size:12px;color:#9aabb0;">天气来自百度地图 · 每天 07:30 自动送达</td></tr>
     </table>
   </td></tr></table>
 </body></html>"""
