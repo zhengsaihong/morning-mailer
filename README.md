@@ -2,14 +2,14 @@
 
 > 每天 07:30，让 GitHub 替你准时说早安。它没有感情，但它有天气。
 
-这是一个会每天发送 HTML 早安邮件的小项目：日期、莆田天气和一句问候，内容不多，适合在起床前先确认今天该不该带伞，或者干脆继续躺五分钟。
+这是一个会每天发送 HTML 早安邮件的小项目：日期、你选的地点的天气和一句问候，内容不多，适合在起床前先确认今天该不该带伞，或者干脆继续躺五分钟。
 
 它跑在 GitHub Actions 上，所以你的电脑可以安心睡觉；唯一需要保持清醒的是 GitHub。
 
 ## 它会做什么
 
 - 每天中国时间 `07:30` 发一封早安邮件
-- 查询福建莆田的天气，包括温度、体感温度、最高/最低温和风力
+- 查询你设置地点的天气，包括温度、体感温度、最高/最低温和风力
 - 用 Gmail SMTP 发邮件
 - 发一份 HTML 邮件，而不是一团令人困惑的纯文本
 
@@ -17,11 +17,12 @@
 
 这个仓库欢迎 Fork。Fork 走的是代码，不是我的账号，也不是我的 Key，更不是我邮箱里的任何东西。
 
-Fork 后，打开你自己仓库的 `Settings` → `Secrets and variables` → `Actions`，添加下面四个 Secrets：
+Fork 后，打开你自己仓库的 `Settings` → `Secrets and variables` → `Actions`，添加下面五个 Secrets：
 
 | Secret | 你要放进去的东西 |
 | --- | --- |
 | `BAIDU_MAP_AK` | 你自己的百度地图天气服务 AK |
+| `BAIDU_DISTRICT_ID` | 你想查地区的行政区划代码 |
 | `GMAIL_ADDRESS` | 负责早起干活的 Gmail 地址 |
 | `GMAIL_APP_PASSWORD` | Gmail 应用专用密码，不是登录密码 |
 | `RECIPIENT_EMAIL` | 想被早安邮件打扰的邮箱 |
@@ -56,7 +57,7 @@ python briefing.py
 
 ## 可改造的地方
 
-- 想查别的城市：修改 `briefing.py` 里的 `PUTIAN_DISTRICT_ID`
+- 想查别的城市：修改 `BAIDU_DISTRICT_ID` Secret
 - 想换一句问候：修改 `greeting_for()`
 - 想在邮件里加日程、待办、新闻或 AI 摘要：欢迎自己折腾，也欢迎提 PR
 
