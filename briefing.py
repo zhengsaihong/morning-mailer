@@ -54,7 +54,7 @@ def parse_recipients(value: str) -> list[tuple[str, str]]:
     return recipients
 
 
-def resolve_district_id(ak: str, place: str) -> str:
+def resolve_city_id(ak: str, place: str) -> str:
     geocoding = requests.get(
         BAIDU_GEOCODING_URL,
         params={"address": place, "output": "json", "ak": ak},
@@ -76,10 +76,10 @@ def resolve_district_id(ak: str, place: str) -> str:
     if reverse_payload.get("status") != 0:
         raise RuntimeError(f"Could not identify region '{place}': {reverse_payload.get('message', 'Baidu reverse geocoding failed')}")
 
-    district_id = reverse_payload["result"]["addressComponent"].get("adcode")
-    if not district_id:
+    adcode = str(reverse_payload["result"]["addressComponent"].get("adcode", ""))
+    if not re.fullmatch(r"\d{6}", adcode):
         raise RuntimeError(f"Baidu did not return an administrative code for '{place}'")
-    return str(district_id)
+    return f"{adcode[:4]}00"
 
 
 def fetch_weather(ak: str, district_id: str) -> dict[str, object]:
@@ -211,8 +211,8 @@ def main() -> None:
         weather_by_place: dict[str, dict[str, object]] = {}
         for place, recipient in parse_recipients(config["RECIPIENTS"]):
             if place not in weather_by_place:
-                district_id = resolve_district_id(config["BAIDU_MAP_AK"], place)
-                weather_by_place[place] = fetch_weather(config["BAIDU_MAP_AK"], district_id)
+                city_id = resolve_city_id(config["BAIDU_MAP_AK"], place)
+                weather_by_place[place] = fetch_weather(config["BAIDU_MAP_AK"], city_id)
             weather = weather_by_place[place]
             plain = render_plain_text(now, weather)
             html = render_html(now, weather)

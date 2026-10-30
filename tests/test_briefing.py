@@ -27,14 +27,14 @@ class BriefingRenderTests(unittest.TestCase):
             briefing.parse_recipients("福建莆田")
 
     @patch("briefing.requests.get")
-    def test_resolve_district_id_geocodes_then_reverse_geocodes(self, get):
+    def test_resolve_city_id_geocodes_then_reverse_geocodes(self, get):
         geocoding = Mock()
         geocoding.json.return_value = {"status": 0, "result": {"location": {"lat": 25.45, "lng": 119.0}}}
         reverse_geocoding = Mock()
-        reverse_geocoding.json.return_value = {"status": 0, "result": {"addressComponent": {"adcode": "350300"}}}
+        reverse_geocoding.json.return_value = {"status": 0, "result": {"addressComponent": {"adcode": "350302"}}}
         get.side_effect = [geocoding, reverse_geocoding]
 
-        self.assertEqual(briefing.resolve_district_id("test-ak", "福建莆田"), "350300")
+        self.assertEqual(briefing.resolve_city_id("test-ak", "福建莆田"), "350300")
         self.assertEqual(get.call_count, 2)
         self.assertEqual(get.call_args_list[1].kwargs["params"]["location"], "25.45,119.0")
 
