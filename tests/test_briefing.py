@@ -1,5 +1,6 @@
 import datetime as dt
 import unittest
+from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 import briefing
@@ -24,6 +25,18 @@ class BriefingRenderTests(unittest.TestCase):
     def test_parse_recipients_rejects_invalid_lines(self):
         with self.assertRaises(ValueError):
             briefing.parse_recipients("福建莆田")
+
+    @patch("briefing.requests.get")
+    def test_resolve_district_id_geocodes_then_reverse_geocodes(self, get):
+        geocoding = Mock()
+        geocoding.json.return_value = {"status": 0, "result": {"location": {"lat": 25.45, "lng": 119.0}}}
+        reverse_geocoding = Mock()
+        reverse_geocoding.json.return_value = {"status": 0, "result": {"addressComponent": {"adcode": "350300"}}}
+        get.side_effect = [geocoding, reverse_geocoding]
+
+        self.assertEqual(briefing.resolve_district_id("test-ak", "福建莆田"), "350300")
+        self.assertEqual(get.call_count, 2)
+        self.assertEqual(get.call_args_list[1].kwargs["params"]["location"], "25.45,119.0")
 
     def test_plain_text_contains_weather_and_greeting(self):
         now = dt.datetime(2026, 10, 30, 7, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
