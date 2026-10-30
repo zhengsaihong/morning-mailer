@@ -17,7 +17,7 @@ import requests
 
 TIMEZONE = ZoneInfo("Asia/Shanghai")
 BAIDU_WEATHER_URL = "https://api.map.baidu.com/weather/v1/"
-MORNING_IMAGE_URL = "https://images.unsplash.com/photo-1771405554137-410a7f0af2cc?auto=format&fit=crop&fm=jpg&q=82&w=1200"
+MORNING_IMAGE_URL = "https://zhengsaihong.github.io/morning-mailer/assets/morning-sunrise.jpg"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("morning_mailer")
